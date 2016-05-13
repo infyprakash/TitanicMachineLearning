@@ -2,43 +2,49 @@ import pandas as pd
 import numpy as np
 import csv as csv
 from sklearn.preprocessing import LabelEncoder
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.cross_validation import train_test_split
-from sklearn.metrics import classification_report
-from sklearn.pipeline import Pipeline
-from sklearn.grid_search import GridSearchCV
+from sklearn.cross_validation import StratifiedKFold
+import matplotlib.pyplot as plt
+from sklearn.feature_selection import RFECV
 
 df=pd.read_csv('/Users/prakashchandraprasad/Desktop/datasets/Titanic/train.csv',header=0)
+df1=pd.read_csv('/Users/prakashchandraprasad/Desktop/datasets/Titanic/test.csv',header=0)
 df['AgeN']=df['Age']
+df1['AgeN']=df1['Age']
 
-df['AgeN']=df['Age'].fillna(df['Age'].mean()) #fill missing values with the mean age value
+
+df['AgeN']=df['Age'].fillna(df['Age'].mean())
+df1['AgeN']=df1['Age'].fillna(df1['Age'].mean())
+
+df1['Fare']=df['Fare'].fillna(0)
 df['SexN']=df['Sex']
-enc=LabelEncoder()
-df['SexN']=enc.fit_transform(df['Sex']) #transform the sex-value into 0 and 1
-#df = df.drop(['Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1) 
-X=df[['PassengerId','Pclass','SibSp','Parch','Fare','AgeN','SexN']] # select the required features
-y=df['Survived']
-X_train=X[:500]
-X_test=X[500:]
-y_train=y[:500]
-y_test=y[500:]
-#X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.48)
-pipeline=Pipeline([('clf',DecisionTreeClassifier(criterion='entropy'))]) #select classifier as decision tree
-parameters={'clf__max_depth':(100,105,110,115,120),
-           'clf__min_samples_split':(3,4,5,6,7),
-           'clf__min_samples_leaf':(3,4,5,6,7)}
+df1['SexN']=df1['Sex']
 
-grid_search=GridSearchCV(pipeline,parameters,n_jobs=-1,verbose=1,scoring='f1')
-grid_search.fit(X_train,y_train)
-print 'Best score: %0.3f' % grid_search.best_score_
-print 'Best parameters set:'
-best_parameters = grid_search.best_estimator_.get_params()
-for param_name in sorted(parameters.keys()):
-    print '\t%s: %r' % (param_name, best_parameters[param_name])
-predictions = grid_search.predict(X_test)
-print classification_report(y_test, predictions)
-finlist=zip(X_test['PassengerId'],predictions)
-with open("/Users/prakashchandraprasad/Desktop/datasets/Titanic/Decision_tree_titanic.csv","wb") as f:
+
+enc=LabelEncoder()
+
+
+
+df['SexN']=enc.fit_transform(df['Sex']) 
+df1['SexN']=enc.fit_transform(df1['Sex'])
+
+
+
+X_train=df[['Pclass','SibSp','Parch','Fare','AgeN','SexN']] 
+y_train=df['Survived']
+X_test=df1[['Pclass','SibSp','Parch','Fare','AgeN','SexN']]
+X_test1=df1[['PassengerId','Pclass','SibSp','Parch','Fare','AgeN','SexN']]
+svc=SVC(kernel='linear')
+#svc=DecisionTreeClassifier(criterion='entropy')
+rfecv=RFECV(estimator=svc, step=1, cv=StratifiedKFold(y_train, 5),scoring='accuracy')
+rfecv.fit(X_train,y_train)
+predictions=rfecv.predict(X_test)
+print rfecv.score(X_train,y_train)
+print("Optimal number of features : %d" % rfecv.n_features_)
+
+finlist=zip(X_test1['PassengerId'],predictions)
+with open("/Users/prakashchandraprasad/Desktop/datasets/Titanic/Decision_tree_titanic7.csv","wb") as f:
     writer=csv.writer(f)
     writer.writerow(["PassengerId","Survived"])
     writer.writerows(finlist)
